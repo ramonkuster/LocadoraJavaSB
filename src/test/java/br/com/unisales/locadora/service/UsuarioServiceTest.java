@@ -89,4 +89,63 @@ class UsuarioServiceTest {
         assertTrue(resultado.isEmpty());
         verify(repository, times(1)).findByUsername(payload);
     }
+
+    @Test
+    void alterar_comNovaSenha_deveCriptografarANovaSenhaAntesDeSalvar() {
+        // Este teste cobre a MESMA correção de segurança (hash de senha), só que no fluxo de atualização.
+        Usuario existente = new Usuario();
+        existente.setId(1L);
+        existente.setUsername("joao");
+        existente.setPassword(new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode("senhaAntiga"));
+        existente.setRole("USER");
+
+        Usuario dadosNovos = new Usuario();
+        dadosNovos.setUsername("joao");
+        dadosNovos.setPassword("senhaNova123");
+        dadosNovos.setRole("USER");
+
+        when(repository.findById(1L)).thenReturn(Optional.of(existente));
+        when(repository.save(any(Usuario.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Usuario atualizado = service.alterar(1L, dadosNovos);
+
+        assertNotNull(atualizado);
+        assertNotEquals("senhaNova123", atualizado.getPassword(), "A nova senha também deve ser criptografada, nunca salva em texto plano");
+        assertTrue(atualizado.getPassword().startsWith("$2"));
+    }
+
+    @Test
+    void alterar_comUsuarioInexistente_deveRetornarNull() {
+        when(repository.findById(99L)).thenReturn(Optional.empty());
+
+        Usuario resultado = service.alterar(99L, new Usuario());
+
+        assertNull(resultado);
+    }
+
+    @Test
+    void buscarPorId_comIdExistente_deveRetornarUsuario() {
+        Usuario usuario = new Usuario();
+        usuario.setId(5L);
+        usuario.setUsername("carla");
+        when(repository.findById(5L)).thenReturn(Optional.of(usuario));
+
+        Usuario resultado = service.buscarPorId(5L);
+
+        assertNotNull(resultado);
+        assertEquals("carla", resultado.getUsername());
+    }
+
+    @Test
+    void listarTodos_deveRetornarListaDoRepositorio() {
+        Usuario u1 = new Usuario();
+        u1.setUsername("a");
+        Usuario u2 = new Usuario();
+        u2.setUsername("b");
+        when(repository.findAll()).thenReturn(java.util.List.of(u1, u2));
+
+        var resultado = service.listarTodos();
+
+        assertEquals(2, resultado.size());
+    }
 }
